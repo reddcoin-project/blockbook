@@ -823,6 +823,12 @@ func jsStr(s string) template.JSStr {
 	return template.JSStr(s)
 }
 
+func normalizeName(s string) string {
+	s = strings.ToLower(s)
+	s = strings.ReplaceAll(s, " ", "-")
+	return s
+}
+
 func (s *PublicServer) explorerTx(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error) {
 	var tx *api.Tx
 	var err error
