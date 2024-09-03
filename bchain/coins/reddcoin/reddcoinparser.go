@@ -1,4 +1,4 @@
-package rdd
+package reddcoin
 
 import (
 	"github.com/trezor/blockbook/bchain"
@@ -74,8 +74,7 @@ var ReddMainNetParams = chaincfg.Params{
 	GenerateSupported:        false,
 
 	// Checkpoints ordered from oldest to newest.
-	Checkpoints: []chaincfg.Checkpoint{
-	},
+	Checkpoints: []chaincfg.Checkpoint{},
 
 	// Mempool parameters
 	RelayNonStdTxs: false,
@@ -87,9 +86,9 @@ var ReddMainNetParams = chaincfg.Params{
 	AddressMagicLen: 1,
 
 	// Address encoding magics
-	PubKeyHashAddrID: []byte{0x3D}, // starts with 61
-	ScriptHashAddrID: []byte{0x05}, // starts with 5
-	PrivateKeyID:     []byte{0xBD},
+	PubKeyHashAddrID:        []byte{0x3D}, // starts with 61
+	ScriptHashAddrID:        []byte{0x05}, // starts with 5
+	PrivateKeyID:            []byte{0xBD},
 	WitnessPubKeyHashAddrID: nil,
 	WitnessScriptHashAddrID: nil,
 
@@ -133,9 +132,9 @@ var ReddTestNetParams = chaincfg.Params{
 	AddressMagicLen: 1,
 
 	// Address encoding magics
-	PubKeyHashAddrID: []byte{0x8B}, // starts with x or y
-	ScriptHashAddrID: []byte{0x13}, // starts with 8 or 9
-	PrivateKeyID:     []byte{0xEF}, // starts with '9' or 'c' (Bitcoin defaults)
+	PubKeyHashAddrID:        []byte{0x8B}, // starts with x or y
+	ScriptHashAddrID:        []byte{0x13}, // starts with 8 or 9
+	PrivateKeyID:            []byte{0xEF}, // starts with '9' or 'c' (Bitcoin defaults)
 	WitnessPubKeyHashAddrID: nil,
 	WitnessScriptHashAddrID: nil,
 
@@ -145,21 +144,20 @@ var ReddTestNetParams = chaincfg.Params{
 	HDCoinType: 0x80000001,
 }
 
-
 func init() {
 	MainNetParams = ReddMainNetParams
 	TestNetParams = ReddTestNetParams
 }
 
-// ReddParser handle
-type ReddParser struct {
+// ReddcoinParser handle
+type ReddcoinParser struct {
 	*btc.BitcoinParser
 	baseparser *bchain.BaseParser
 }
 
-// NewReddParser returns new ReddParser instance
-func NewReddParser(params *chaincfg.Params, c *btc.Configuration) *ReddParser {
-	return &ReddParser{
+// NewReddcoinParser returns new ReddcoinParser instance
+func NewReddcoinParser(params *chaincfg.Params, c *btc.Configuration) *ReddcoinParser {
+	return &ReddcoinParser{
 		BitcoinParser: btc.NewBitcoinParser(params, c),
 		baseparser:    &bchain.BaseParser{},
 	}
@@ -186,11 +184,11 @@ func GetChainParams(chain string) *chaincfg.Params {
 }
 
 // PackTx packs transaction to byte array using protobuf
-func (p *ReddParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
+func (p *ReddcoinParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) ([]byte, error) {
 	return p.baseparser.PackTx(tx, height, blockTime)
 }
 
 // UnpackTx unpacks transaction from protobuf byte array
-func (p *ReddParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
+func (p *ReddcoinParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	return p.baseparser.UnpackTx(buf)
 }

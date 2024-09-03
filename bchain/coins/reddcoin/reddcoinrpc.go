@@ -1,9 +1,9 @@
-package rdd
+package reddcoin
 
 import (
+	"encoding/json"
 	"github.com/trezor/blockbook/bchain"
 	"github.com/trezor/blockbook/bchain/coins/btc"
-	"encoding/json"
 
 	"github.com/golang/glog"
 	"github.com/juju/errors"
@@ -35,7 +35,7 @@ func (b *ReedRPC) Initialize() error {
 
 	params := GetChainParams(chainName)
 
-	b.Parser = NewReddParser(params, b.ChainConfig)
+	b.Parser = NewReddcoinParser(params, b.ChainConfig)
 
 	// parameters for getInfo request
 	if params.Net == MainReddNet {
