@@ -13,8 +13,8 @@ import (
 
 const (
 	// MainNet represents the main bitcoin network.
-	MainReddNet wire.BitcoinNet = 0x504852 // PHR
-	TestReddNet wire.BitcoinNet = 0x545048 // TP
+	MainReddNet wire.BitcoinNet = 0xfbc0b6db
+	TestReddNet wire.BitcoinNet = 0xf1c8d2fd
 )
 
 var (
@@ -81,7 +81,7 @@ var ReddMainNetParams = chaincfg.Params{
 
 	// Human-readable part for Bech32 encoded segwit addresses, as defined in
 	// BIP 173.
-	Bech32HRPSegwit: "bc", // always bc for main net
+	Bech32HRPSegwit: "rdd", // always rdd for main net
 
 	AddressMagicLen: 1,
 
@@ -127,14 +127,14 @@ var ReddTestNetParams = chaincfg.Params{
 	GenerateSupported:        true,
 	Checkpoints:              []chaincfg.Checkpoint{},
 	RelayNonStdTxs:           false,
-	Bech32HRPSegwit:          "bc",
+	Bech32HRPSegwit:          "trdd",
 
 	AddressMagicLen: 1,
 
 	// Address encoding magics
-	PubKeyHashAddrID:        []byte{0x8B}, // starts with x or y
-	ScriptHashAddrID:        []byte{0x13}, // starts with 8 or 9
-	PrivateKeyID:            []byte{0xEF}, // starts with '9' or 'c' (Bitcoin defaults)
+	PubKeyHashAddrID:        []byte{0x6F},
+	ScriptHashAddrID:        []byte{0xC4},
+	PrivateKeyID:            []byte{0xEF},
 	WitnessPubKeyHashAddrID: nil,
 	WitnessScriptHashAddrID: nil,
 
