@@ -1,6 +1,7 @@
 package reddcoin
 
 import (
+	"bytes"
 	"github.com/trezor/blockbook/bchain"
 	"github.com/trezor/blockbook/bchain/coins/btc"
 	"math/big"
@@ -151,15 +152,15 @@ func init() {
 
 // ReddcoinParser handle
 type ReddcoinParser struct {
-	*btc.BitcoinParser
+	*btc.BitcoinLikeParser
 	baseparser *bchain.BaseParser
 }
 
 // NewReddcoinParser returns new ReddcoinParser instance
 func NewReddcoinParser(params *chaincfg.Params, c *btc.Configuration) *ReddcoinParser {
 	return &ReddcoinParser{
-		BitcoinParser: btc.NewBitcoinParser(params, c),
-		baseparser:    &bchain.BaseParser{},
+		BitcoinLikeParser: btc.NewBitcoinLikeParser(params, c),
+		baseparser:        &bchain.BaseParser{},
 	}
 }
 
@@ -191,4 +192,27 @@ func (p *ReddcoinParser) PackTx(tx *bchain.Tx, height uint32, blockTime int64) (
 // UnpackTx unpacks transaction from protobuf byte array
 func (p *ReddcoinParser) UnpackTx(buf []byte) (*bchain.Tx, uint32, error) {
 	return p.baseparser.UnpackTx(buf)
+}
+
+// ParseBlock parses raw block to our Block struct
+func (p *ReddcoinParser) ParseBlock(b []byte) (*bchain.Block, error) {
+	w := wire.MsgBlock{}
+	r := bytes.NewReader(b)
+
+	if err := w.Deserialize(r); err != nil {
+		return nil, err
+	}
+
+	txs := make([]bchain.Tx, len(w.Transactions))
+	for ti, t := range w.Transactions {
+		txs[ti] = p.TxFromMsgTx(t, false)
+	}
+
+	return &bchain.Block{
+		BlockHeader: bchain.BlockHeader{
+			Size: len(b),
+			Time: w.Header.Timestamp.Unix(),
+		},
+		Txs: txs,
+	}, nil
 }
