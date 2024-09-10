@@ -154,14 +154,20 @@ func init() {
 type ReddcoinParser struct {
 	*btc.BitcoinLikeParser
 	baseparser *bchain.BaseParser
+	BitcoinOutputScriptToAddressesFunc btc.OutputScriptToAddressesFunc
 }
 
 // NewReddcoinParser returns new ReddcoinParser instance
 func NewReddcoinParser(params *chaincfg.Params, c *btc.Configuration) *ReddcoinParser {
-	return &ReddcoinParser{
+	p := &ReddcoinParser{
 		BitcoinLikeParser: btc.NewBitcoinLikeParser(params, c),
 		baseparser:        &bchain.BaseParser{},
 	}
+	p.BitcoinOutputScriptToAddressesFunc = p.OutputScriptToAddressesFunc
+	p.OutputScriptToAddressesFunc = p.outputScriptToAddresses
+
+	return p
+
 }
 
 // GetChainParams contains network parameters for the main ReedCoin network,
@@ -215,4 +221,10 @@ func (p *ReddcoinParser) ParseBlock(b []byte) (*bchain.Block, error) {
 		},
 		Txs: txs,
 	}, nil
+}
+
+// outputScriptToAddresses converts ScriptPubKey to bitcoin addresses
+func (p *ReddcoinParser) outputScriptToAddresses(script []byte) ([]string, bool, error) {
+	rv, s, _ := p.BitcoinOutputScriptToAddressesFunc(script)
+	return rv, s, nil
 }
