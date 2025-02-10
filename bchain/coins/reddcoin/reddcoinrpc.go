@@ -2,37 +2,43 @@ package reddcoin
 
 import (
 	"encoding/json"
-	"github.com/trezor/blockbook/bchain"
-	"github.com/trezor/blockbook/bchain/coins/btc"
 
 	"github.com/golang/glog"
 	"github.com/juju/errors"
+	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/btc"
 )
 
-type ReedRPC struct {
+// ReddcoinRPC is an interface to JSON-RPC bitcoind service.
+type ReddcoinRPC struct {
 	*btc.BitcoinRPC
 }
 
-func NewReddRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
+// NewReddcoinRPC is an interface to JSON-RPC bitcoind service.
+func NewReddcoinRPC(config json.RawMessage, pushHandler func(bchain.NotificationType)) (bchain.BlockChain, error) {
 	b, err := btc.NewBitcoinRPC(config, pushHandler)
 	if err != nil {
 		return nil, err
 	}
-	g := &ReedRPC{
-		BitcoinRPC: b.(*btc.BitcoinRPC),
+
+	s := &ReddcoinRPC{
+		b.(*btc.BitcoinRPC),
 	}
-	g.RPCMarshaler = btc.JSONMarshalerV1{}
-	return g, nil
+	s.RPCMarshaler = btc.JSONMarshalerV2{}
+	s.ChainConfig.SupportsEstimateFee = false
+
+	return s, nil
 }
 
-// Initialize initializes ReedRPC instance.
-func (b *ReedRPC) Initialize() error {
+// Initialize initializes ReddcoinRPC instance.
+func (b *ReddcoinRPC) Initialize() error {
 	ci, err := b.GetChainInfo()
 	if err != nil {
 		return err
 	}
 	chainName := ci.Chain
 
+	glog.Info("Chain name ", chainName)
 	params := GetChainParams(chainName)
 
 	b.Parser = NewReddcoinParser(params, b.ChainConfig)
@@ -52,7 +58,7 @@ func (b *ReedRPC) Initialize() error {
 }
 
 // GetBlock returns block with given hash.
-func (s *ReedRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
+func (s *ReddcoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	var err error
 	if hash == "" && height > 0 {
 		hash, err = s.GetBlockHash(height)
@@ -97,6 +103,6 @@ func (s *ReedRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 
 // GetTransactionForMempool returns a transaction by the transaction ID.
 // It could be optimized for mempool, i.e. without block time and confirmations
-func (s *ReedRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
+func (s *ReddcoinRPC) GetTransactionForMempool(txid string) (*bchain.Tx, error) {
 	return s.GetTransaction(txid)
 }

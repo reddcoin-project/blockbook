@@ -142,8 +142,8 @@ func init() {
 	BlockChainFactories["Polygon Archive"] = polygon.NewPolygonRPC
 	BlockChainFactories["Optimism"] = optimism.NewOptimismRPC
 	BlockChainFactories["Optimism Archive"] = optimism.NewOptimismRPC
-	BlockChainFactories["Reddcoin"] = reddcoin.NewReddRPC
-	BlockChainFactories["Reddcoin Testnet"] = reddcoin.NewReddRPC
+	BlockChainFactories["Reddcoin"] = reddcoin.NewReddcoinRPC
+	BlockChainFactories["Reddcoin Testnet"] = reddcoin.NewReddcoinRPC
 }
 
 // NewBlockChain creates bchain.BlockChain and bchain.Mempool for the coin passed by the parameter coin
