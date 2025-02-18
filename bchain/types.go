@@ -201,6 +201,7 @@ type ChainInfo struct {
 	Headers          int         `json:"headers"`
 	Bestblockhash    string      `json:"bestblockhash"`
 	Difficulty       string      `json:"difficulty"`
+	MoneySupply      string      `json:"moneysupply"`
 	SizeOnDisk       int64       `json:"size_on_disk"`
 	Version          string      `json:"version"`
 	Subversion       string      `json:"subversion"`
