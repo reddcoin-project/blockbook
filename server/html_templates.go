@@ -35,6 +35,119 @@ type htmlTemplates[TD any] struct {
 	postHtmlTemplateHandler  func(data *TD, w http.ResponseWriter, r *http.Request)
 }
 
+func (s *htmlTemplates[TD]) jsonHandler(handler func(r *http.Request, apiVersion int) (interface{}, error), apiVersion int) func(w http.ResponseWriter, r *http.Request) {
+	type jsonError struct {
+		Text       string `json:"error"`
+		HTTPStatus int    `json:"-"`
+	}
+	handlerName := getFunctionName(handler)
+	return func(w http.ResponseWriter, r *http.Request) {
+		var data interface{}
+		var err error
+		defer func() {
+			if e := recover(); e != nil {
+				glog.Error(handlerName, " recovered from panic: ", e)
+				debug.PrintStack()
+				if s.debug {
+					data = jsonError{fmt.Sprint("Internal server error: recovered from panic ", e), http.StatusInternalServerError}
+				} else {
+					data = jsonError{"Internal server error", http.StatusInternalServerError}
+				}
+			}
+			w.Header().Set("Content-Type", "application/json; charset=utf-8")
+			if e, isError := data.(jsonError); isError {
+				w.WriteHeader(e.HTTPStatus)
+			}
+			err = json.NewEncoder(w).Encode(data)
+			if err != nil {
+				glog.Warning("json encode ", err)
+			}
+			if s.metrics != nil {
+				s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
+			}
+		}()
+		if s.metrics != nil {
+			s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Inc()
+		}
+		data, err = handler(r, apiVersion)
+		if err != nil || data == nil {
+			if apiErr, ok := err.(*api.APIError); ok {
+				if apiErr.Public {
+					data = jsonError{apiErr.Error(), http.StatusBadRequest}
+				} else {
+					data = jsonError{apiErr.Error(), http.StatusInternalServerError}
+				}
+			} else {
+				if err != nil {
+					glog.Error(handlerName, " error: ", err)
+				}
+				if s.debug {
+					if data != nil {
+						data = jsonError{fmt.Sprintf("Internal server error: %v, data %+v", err, data), http.StatusInternalServerError}
+					} else {
+						data = jsonError{fmt.Sprintf("Internal server error: %v", err), http.StatusInternalServerError}
+					}
+				} else {
+					data = jsonError{"Internal server error", http.StatusInternalServerError}
+				}
+			}
+		}
+	}
+}
+
+func (s *PublicServer) plainTextHandler(handler func(r *http.Request, apiVersion int) (string, error), apiVersion int) func(w http.ResponseWriter, r *http.Request) {
+	type plainTextError struct {
+		Message    string
+		HTTPStatus int
+	}
+	handlerName := getFunctionName(handler)
+	return func(w http.ResponseWriter, r *http.Request) {
+		var responseText string
+		var err error
+		defer func() {
+			if e := recover(); e != nil {
+				glog.Error(handlerName, " recovered from panic: ", e)
+				debug.PrintStack()
+				if s.debug {
+					responseText = fmt.Sprintf("Internal server error: recovered from panic %v", e)
+				} else {
+					responseText = "Internal server error"
+				}
+				http.Error(w, responseText, http.StatusInternalServerError)
+				s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
+			}
+
+			if err != nil {
+				var statusCode int
+				if apiErr, ok := err.(*api.APIError); ok {
+					statusCode = http.StatusBadRequest
+					responseText = apiErr.Error()
+				} else {
+					statusCode = http.StatusInternalServerError
+					if s.debug {
+						responseText = fmt.Sprintf("Internal server error: %v", err)
+					} else {
+						responseText = "Internal server error"
+					}
+				}
+				http.Error(w, responseText, statusCode)
+			} else {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusOK) // Assume 200 OK for successful response
+				_, writeErr := w.Write([]byte(responseText))
+				if writeErr != nil {
+					glog.Warning("plain text write error: ", writeErr)
+				}
+			}
+
+			s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
+		}()
+
+		s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Inc()
+		responseText, err = handler(r, apiVersion)
+	}
+}
+
 func (s *htmlTemplates[TD]) htmlTemplateHandler(handler func(w http.ResponseWriter, r *http.Request) (tpl, *TD, error)) func(w http.ResponseWriter, r *http.Request) {
 	handlerName := getFunctionName(handler)
 	return func(w http.ResponseWriter, r *http.Request) {

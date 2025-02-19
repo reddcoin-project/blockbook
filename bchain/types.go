@@ -131,7 +131,8 @@ type TokenTypeName string
 
 // Token types
 const (
-	UnknownTokenType TokenTypeName = ""
+	UnknownTokenType   TokenTypeName = ""
+	UnhandledTokenType TokenTypeName = "-"
 
 	// XPUBAddressTokenType is address derived from xpub
 	XPUBAddressTokenType TokenTypeName = "XPUBAddress"
@@ -200,6 +201,7 @@ type ChainInfo struct {
 	Headers          int         `json:"headers"`
 	Bestblockhash    string      `json:"bestblockhash"`
 	Difficulty       string      `json:"difficulty"`
+	MoneySupply      string      `json:"moneysupply"`
 	SizeOnDisk       int64       `json:"size_on_disk"`
 	Version          string      `json:"version"`
 	Subversion       string      `json:"subversion"`
@@ -335,6 +337,8 @@ type BlockChain interface {
 	EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc AddressDescriptor) (*big.Int, error)
 	EthereumTypeGetSupportedStakingPools() []string
 	EthereumTypeGetStakingPoolsData(addrDesc AddressDescriptor) ([]StakingPoolData, error)
+	EthereumTypeRpcCall(data, to, from string) (string, error)
+	EthereumTypeGetRawTransaction(txid string) (string, error)
 	GetTokenURI(contractDesc AddressDescriptor, tokenID *big.Int) (string, error)
 }
 

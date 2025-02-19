@@ -120,6 +120,12 @@
                     <td>Difficulty</td>
                     <td>{{$be.Difficulty}}</td>
                 </tr>
+                {{if $be.MoneySupply}}
+                <tr>
+                    <td>Money Supply</td>
+                    <td>{{$be.MoneySupply}}</td>
+                </tr>
+                {{end}}
                 {{if $be.Timeoffset}}
                 <tr>
                     <td>Timeoffset</td>
