@@ -1,7 +1,7 @@
 # Registry of ports
 
 | coin                             | blockbook public | blockbook internal | backend rpc | backend service ports (zmq)                         |
-|----------------------------------|------------------|--------------------|-------------|-----------------------------------------------------|
+| -------------------------------- | ---------------- | ------------------ | ----------- | --------------------------------------------------- |
 | Ethereum Archive                 | 9116             | 9016               | 8016        | 38316 p2p, 8116 http, 8516 authrpc                  |
 | Bitcoin                          | 9130             | 9030               | 8030        | 38330                                               |
 | Bitcoin Cash                     | 9131             | 9031               | 8031        | 38331                                               |
@@ -55,9 +55,14 @@
 | Avalanche Archive                | 9199             | 9099               | 8099        | 38399 p2p                                           |
 | Optimism                         | 9300             | 9200               | 8200        | 38400 p2p, 8300 http, 8400 authrpc                  |
 | Optimism Archive                 | 9302             | 9202               | 8202        | 38402 p2p, 8302 http, 8402 authrpc                  |
+| Arbitrum                         | 9305             | 9205               | 8205        | 38405 p2p, 8305 http                                |
+| Arbitrum Archive                 | 9306             | 9206               | 8306        | 38406 p2p                                           |
+| Arbitrum Nova                    | 9307             | 9207               | 8207        | 38407 p2p, 8307 http                                |
+| Arbitrum Nova Archive            | 9308             | 9208               | 8308        | 38408 p2p                                           |
 | Ethereum Testnet Holesky         | 19116            | 19016              | 18016       | 18116 http, 18516 authrpc, 48316 p2p                |
 | Bitcoin Signet                   | 19120            | 19020              | 18020       | 48320                                               |
 | Bitcoin Regtest                  | 19121            | 19021              | 18021       | 48321                                               |
+| Bitcoin Testnet4                 | 19129            | 19029              | 18029       | 48329                                               |
 | Bitcoin Testnet                  | 19130            | 19030              | 18030       | 48330                                               |
 | Bitcoin Cash Testnet             | 19131            | 19031              | 18031       | 48331                                               |
 | Zcash Testnet                    | 19132            | 19032              | 18032       | 48332                                               |

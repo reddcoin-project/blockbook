@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
+	"github.com/trezor/blockbook/bchain/coins/arbitrum"
 	"github.com/trezor/blockbook/bchain/coins/avalanche"
 	"github.com/trezor/blockbook/bchain/coins/bch"
 	"github.com/trezor/blockbook/bchain/coins/bellcoin"
@@ -68,6 +69,7 @@ var BlockChainFactories = make(map[string]blockChainFactory)
 func init() {
 	BlockChainFactories["Bitcoin"] = btc.NewBitcoinRPC
 	BlockChainFactories["Testnet"] = btc.NewBitcoinRPC
+	BlockChainFactories["Testnet4"] = btc.NewBitcoinRPC
 	BlockChainFactories["Signet"] = btc.NewBitcoinRPC
 	BlockChainFactories["Regtest"] = btc.NewBitcoinRPC
 	BlockChainFactories["Zcash"] = zec.NewZCashRPC
@@ -142,6 +144,10 @@ func init() {
 	BlockChainFactories["Polygon Archive"] = polygon.NewPolygonRPC
 	BlockChainFactories["Optimism"] = optimism.NewOptimismRPC
 	BlockChainFactories["Optimism Archive"] = optimism.NewOptimismRPC
+	BlockChainFactories["Arbitrum"] = arbitrum.NewArbitrumRPC
+	BlockChainFactories["Arbitrum Archive"] = arbitrum.NewArbitrumRPC
+	BlockChainFactories["Arbitrum Nova"] = arbitrum.NewArbitrumRPC
+	BlockChainFactories["Arbitrum Nova Archive"] = arbitrum.NewArbitrumRPC
 	BlockChainFactories["Reddcoin"] = reddcoin.NewReddcoinRPC
 	BlockChainFactories["Reddcoin Testnet"] = reddcoin.NewReddcoinRPC
 }
@@ -330,7 +336,7 @@ func (c *blockChainWithMetrics) EthereumTypeGetErc20ContractBalance(addrDesc, co
 	return c.b.EthereumTypeGetErc20ContractBalance(addrDesc, contractDesc)
 }
 
-// GetContractInfo returns URI of non fungible or multi token defined by token id
+// GetTokenURI returns URI of non fungible or multi token defined by token id
 func (c *blockChainWithMetrics) GetTokenURI(contractDesc bchain.AddressDescriptor, tokenID *big.Int) (v string, err error) {
 	defer func(s time.Time) { c.observeRPCLatency("GetTokenURI", s, err) }(time.Now())
 	return c.b.GetTokenURI(contractDesc, tokenID)
@@ -343,6 +349,17 @@ func (c *blockChainWithMetrics) EthereumTypeGetSupportedStakingPools() []string 
 func (c *blockChainWithMetrics) EthereumTypeGetStakingPoolsData(addrDesc bchain.AddressDescriptor) (v []bchain.StakingPoolData, err error) {
 	defer func(s time.Time) { c.observeRPCLatency("EthereumTypeStakingPoolsData", s, err) }(time.Now())
 	return c.b.EthereumTypeGetStakingPoolsData(addrDesc)
+}
+
+// EthereumTypeRpcCall calls eth_call with given data and to address
+func (c *blockChainWithMetrics) EthereumTypeRpcCall(data, to, from string) (v string, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("EthereumTypeRpcCall", s, err) }(time.Now())
+	return c.b.EthereumTypeRpcCall(data, to, from)
+}
+
+func (c *blockChainWithMetrics) EthereumTypeGetRawTransaction(txid string) (v string, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("EthereumTypeGetRawTransaction", s, err) }(time.Now())
+	return c.b.EthereumTypeGetRawTransaction(txid)
 }
 
 type mempoolWithMetrics struct {

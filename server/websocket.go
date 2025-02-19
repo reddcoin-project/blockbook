@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math/big"
 	"net/http"
+	"os"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -70,6 +71,7 @@ type WebsocketServer struct {
 	fiatRatesSubscriptions          map[string]map[*websocketChannel]string
 	fiatRatesTokenSubscriptions     map[*websocketChannel][]string
 	fiatRatesSubscriptionsLock      sync.Mutex
+	allowedRpcCallTo                map[string]struct{}
 }
 
 // NewWebsocketServer creates new websocket interface to blockbook and returns its handle
@@ -104,6 +106,14 @@ func NewWebsocketServer(db *db.RocksDB, chain bchain.BlockChain, mempool bchain.
 		addressSubscriptions:        make(map[string]map[*websocketChannel]string),
 		fiatRatesSubscriptions:      make(map[string]map[*websocketChannel]string),
 		fiatRatesTokenSubscriptions: make(map[*websocketChannel][]string),
+	}
+	envRpcCall := os.Getenv(strings.ToUpper(is.GetNetwork()) + "_ALLOWED_RPC_CALL_TO")
+	if envRpcCall != "" {
+		s.allowedRpcCallTo = make(map[string]struct{})
+		for _, c := range strings.Split(envRpcCall, ",") {
+			s.allowedRpcCallTo[strings.ToLower(c)] = struct{}{}
+		}
+		glog.Info("Support of rpcCall for these contracts: ", envRpcCall)
 	}
 	return s, nil
 }
@@ -388,6 +398,14 @@ var requestHandlers = map[string]func(*WebsocketServer, *websocketChannel, *WsRe
 		err = json.Unmarshal(req.Params, &r)
 		if err == nil {
 			rv, err = s.getBlockFiltersBatch(&r)
+		}
+		return
+	},
+	"rpcCall": func(s *WebsocketServer, c *websocketChannel, req *WsReq) (rv interface{}, err error) {
+		r := WsRpcCallReq{}
+		err = json.Unmarshal(req.Params, &r)
+		if err == nil {
+			rv, err = s.rpcCall(&r)
 		}
 		return
 	},
@@ -745,6 +763,20 @@ func (s *WebsocketServer) getBlockFiltersBatch(r *WsBlockFiltersBatchReq) (res i
 		ZeroedKey:         s.is.BlockFilterUseZeroedKey,
 		BlockFiltersBatch: blockFiltersBatch,
 	}, nil
+}
+
+func (s *WebsocketServer) rpcCall(r *WsRpcCallReq) (*WsRpcCallRes, error) {
+	if s.allowedRpcCallTo != nil {
+		_, ok := s.allowedRpcCallTo[strings.ToLower(r.To)]
+		if !ok {
+			return nil, errors.New("Not supported")
+		}
+	}
+	data, err := s.chain.EthereumTypeRpcCall(r.Data, r.To, r.From)
+	if err != nil {
+		return nil, err
+	}
+	return &WsRpcCallRes{Data: data}, nil
 }
 
 type subscriptionResponse struct {
