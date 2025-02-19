@@ -95,6 +95,59 @@ func (s *htmlTemplates[TD]) jsonHandler(handler func(r *http.Request, apiVersion
 	}
 }
 
+func (s *PublicServer) plainTextHandler(handler func(r *http.Request, apiVersion int) (string, error), apiVersion int) func(w http.ResponseWriter, r *http.Request) {
+	type plainTextError struct {
+		Message    string
+		HTTPStatus int
+	}
+	handlerName := getFunctionName(handler)
+	return func(w http.ResponseWriter, r *http.Request) {
+		var responseText string
+		var err error
+		defer func() {
+			if e := recover(); e != nil {
+				glog.Error(handlerName, " recovered from panic: ", e)
+				debug.PrintStack()
+				if s.debug {
+					responseText = fmt.Sprintf("Internal server error: recovered from panic %v", e)
+				} else {
+					responseText = "Internal server error"
+				}
+				http.Error(w, responseText, http.StatusInternalServerError)
+				s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
+			}
+
+			if err != nil {
+				var statusCode int
+				if apiErr, ok := err.(*api.APIError); ok {
+					statusCode = http.StatusBadRequest
+					responseText = apiErr.Error()
+				} else {
+					statusCode = http.StatusInternalServerError
+					if s.debug {
+						responseText = fmt.Sprintf("Internal server error: %v", err)
+					} else {
+						responseText = "Internal server error"
+					}
+				}
+				http.Error(w, responseText, statusCode)
+			} else {
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusOK) // Assume 200 OK for successful response
+				_, writeErr := w.Write([]byte(responseText))
+				if writeErr != nil {
+					glog.Warning("plain text write error: ", writeErr)
+				}
+			}
+
+			s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Dec()
+		}()
+
+		s.metrics.ExplorerPendingRequests.With((common.Labels{"method": handlerName})).Inc()
+		responseText, err = handler(r, apiVersion)
+	}
+}
+
 func (s *htmlTemplates[TD]) htmlTemplateHandler(handler func(w http.ResponseWriter, r *http.Request) (tpl, *TD, error)) func(w http.ResponseWriter, r *http.Request) {
 	handlerName := getFunctionName(handler)
 	return func(w http.ResponseWriter, r *http.Request) {
