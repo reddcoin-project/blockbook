@@ -7,11 +7,27 @@ import (
 	"github.com/juju/errors"
 	"github.com/trezor/blockbook/bchain"
 	"github.com/trezor/blockbook/bchain/coins/btc"
+	"github.com/trezor/blockbook/common"
 )
 
 // ReddcoinRPC is an interface to JSON-RPC bitcoind service.
 type ReddcoinRPC struct {
 	*btc.BitcoinRPC
+}
+
+// ResGetBlockChainInfo is a response to GetChainInfo request
+type ResGetBlockChainInfo struct {
+	Error  *bchain.RPCError `json:"error"`
+	Result struct {
+		Chain         string            `json:"chain"`
+		Blocks        int               `json:"blocks"`
+		Headers       int               `json:"headers"`
+		Bestblockhash string            `json:"bestblockhash"`
+		Difficulty    common.JSONNumber `json:"difficulty"`
+		MoneySupply   common.JSONNumber `json:"moneysupply"`
+		SizeOnDisk    int64             `json:"size_on_disk"`
+		Warnings      string            `json:"warnings"`
+	} `json:"result"`
 }
 
 // NewReddcoinRPC is an interface to JSON-RPC bitcoind service.
@@ -55,6 +71,42 @@ func (b *ReddcoinRPC) Initialize() error {
 	glog.Info("rpc: block chain ", params.Name)
 
 	return nil
+}
+
+// GetChainInfo return info about the blockchain
+func (b *ReddcoinRPC) GetChainInfo() (*bchain.ChainInfo, error) {
+	chainInfo := ResGetBlockChainInfo{}
+	err := b.Call(&btc.CmdGetBlockChainInfo{Method: "getblockchaininfo"}, &chainInfo)
+	if err != nil {
+		return nil, err
+	}
+	if chainInfo.Error != nil {
+		return nil, chainInfo.Error
+	}
+
+	networkInfo := btc.ResGetNetworkInfo{}
+	err = b.Call(&btc.CmdGetNetworkInfo{Method: "getnetworkinfo"}, &networkInfo)
+	if err != nil {
+		return nil, err
+	}
+	if networkInfo.Error != nil {
+		return nil, networkInfo.Error
+	}
+
+	return &bchain.ChainInfo{
+		Bestblockhash:   chainInfo.Result.Bestblockhash,
+		Blocks:          chainInfo.Result.Blocks,
+		Chain:           chainInfo.Result.Chain,
+		Difficulty:      string(chainInfo.Result.Difficulty),
+		MoneySupply:     string(chainInfo.Result.MoneySupply),
+		Headers:         chainInfo.Result.Headers,
+		SizeOnDisk:      chainInfo.Result.SizeOnDisk,
+		Version:         string(networkInfo.Result.Version),
+		Subversion:      string(networkInfo.Result.Subversion),
+		ProtocolVersion: string(networkInfo.Result.ProtocolVersion),
+		Timeoffset:      networkInfo.Result.Timeoffset,
+		Warnings:        networkInfo.Result.Warnings,
+	}, nil
 }
 
 // GetBlock returns block with given hash.

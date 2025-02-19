@@ -2468,6 +2468,7 @@ func (w *Worker) GetSystemInfo(internal bool) (*SystemInfo, error) {
 		Blocks:           ci.Blocks,
 		Chain:            ci.Chain,
 		Difficulty:       ci.Difficulty,
+		MoneySupply:      ci.MoneySupply,
 		Headers:          ci.Headers,
 		ProtocolVersion:  ci.ProtocolVersion,
 		SizeOnDisk:       ci.SizeOnDisk,

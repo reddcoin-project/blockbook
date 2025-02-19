@@ -39,6 +39,7 @@ type BackendInfo struct {
 	Headers          int         `json:"headers,omitempty"`
 	BestBlockHash    string      `json:"bestBlockHash,omitempty"`
 	Difficulty       string      `json:"difficulty,omitempty"`
+	MoneySupply      string      `json:"moneysupply,omitempty"`
 	SizeOnDisk       int64       `json:"sizeOnDisk,omitempty"`
 	Version          string      `json:"version,omitempty"`
 	Subversion       string      `json:"subversion,omitempty"`
