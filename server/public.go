@@ -196,6 +196,7 @@ func (s *PublicServer) ConnectFullPublicInterface() {
 	serveMux.HandleFunc(path+"api/estimatefee/", s.jsonHandler(s.apiEstimateFee, apiDefault))
 	serveMux.HandleFunc(path+"api/balancehistory/", s.jsonHandler(s.apiBalanceHistory, apiDefault))
 	serveMux.HandleFunc(path+"api/moneysupply/", s.plainTextHandler(s.apiMoneySupply, apiDefault))
+	serveMux.HandleFunc(path+"api/totalsupply/", s.plainTextHandler(s.apiTotalSupply, apiDefault))
 	// v2 format
 	serveMux.HandleFunc(path+"api/v2/block-index/", s.jsonHandler(s.apiBlockIndex, apiV2))
 	serveMux.HandleFunc(path+"api/v2/block-filters/", s.jsonHandler(s.apiBlockFilters, apiV2))
@@ -1154,6 +1155,15 @@ func (s *PublicServer) apiIndex(r *http.Request, apiVersion int) (interface{}, e
 }
 
 func (s *PublicServer) apiMoneySupply(r *http.Request, apiVersion int) (string, error) {
+	sysInfo, err := s.api.GetSystemInfo(false)
+	if err != nil {
+		glog.Error(err)
+		return "error", err
+	}
+	return fmt.Sprintf(sysInfo.Backend.MoneySupply), nil
+}
+
+func (s *PublicServer) apiTotalSupply(r *http.Request, apiVersion int) (string, error) {
 	sysInfo, err := s.api.GetSystemInfo(false)
 	if err != nil {
 		glog.Error(err)
