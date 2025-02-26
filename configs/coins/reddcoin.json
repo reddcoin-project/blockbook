@@ -22,10 +22,10 @@
     "package_name": "backend-reddcoin",
     "package_revision": "satoshilabs-1",
     "system_user": "reddcoin",
-    "version": "4.22.9rc1",
-    "binary_url": "https://download.reddcoin.com/bin/reddcoin-core-4.22.9rc1/reddcoin-4.22.9rc1-x86_64-linux-gnu.tar.gz",
+    "version": "4.22.9rc2",
+    "binary_url": "https://download.reddcoin.com/bin/reddcoin-core-4.22.9rc2/reddcoin-4.22.9rc2-x86_64-linux-gnu.tar.gz",
     "verification_type": "sha256",
-    "verification_source": "776cb3f6553c5fba810f13c7672904f9ecddcd001142e0b99496fd7e264dd939",
+    "verification_source": "0304d43f558c9af17ec7afae576ef9a30892b35e94f39d6f2a76f5970c6912f5",
     "extract_command": "tar -C backend --strip 1 -xf",
     "exclude_files": [
       "bin/reddcoin-qt"
@@ -35,7 +35,7 @@
     "postinst_script_template": "",
     "service_type": "forking",
     "service_additional_params_template": "",
-    "protect_memory": true,
+    "protect_memory": false,
     "mainnet": true,
     "server_config_file": "bitcoin_like.conf",
     "client_config_file": "bitcoin_like_client.conf",
