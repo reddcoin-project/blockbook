@@ -21,6 +21,11 @@ func (c *fakeBlockChainEthereumType) CreateMempool(chain bchain.BlockChain) (bch
 	return bchain.NewMempoolEthereumType(chain, 1, false), nil
 }
 
+func (c *fakeBlockChainEthereumType) GetPeerInfo() ([]bchain.PeerInfo, error) {
+	// Return empty peer list for fake Ethereum blockchain
+	return []bchain.PeerInfo{}, nil
+}
+
 func (c *fakeBlockChainEthereumType) GetChainInfo() (v *bchain.ChainInfo, err error) {
 	return &bchain.ChainInfo{
 		Chain:         c.GetNetworkName(),

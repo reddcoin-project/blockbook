@@ -50,6 +50,11 @@ func (c *fakeBlockChain) GetSubversion() string {
 	return "/Fakecoin:0.0.1/"
 }
 
+func (c *fakeBlockChain) GetPeerInfo() ([]bchain.PeerInfo, error) {
+	// Return empty peer list for fake blockchain
+	return []bchain.PeerInfo{}, nil
+}
+
 func (c *fakeBlockChain) GetChainInfo() (v *bchain.ChainInfo, err error) {
 	return &bchain.ChainInfo{
 		Chain:         c.GetNetworkName(),

@@ -212,6 +212,22 @@ type ChainInfo struct {
 	Consensus        interface{} `json:"consensus,omitempty"`
 }
 
+type PeerInfo struct {
+	ID            int     `json:"id"`
+	Addr          string  `json:"addr"`
+	Version       int     `json:"version"`
+	Services      string  `json:"services"`
+	ConnTime      int64   `json:"conntime"`
+	LastSend      int64   `json:"lastsend"`
+	LastRecv      int64   `json:"lastrecv"`
+	BytesSent     int64   `json:"bytessent"`
+	BytesRecv     int64   `json:"bytesrecv"`
+	PingTime      float64 `json:"pingtime"`
+	SyncedHeaders int     `json:"synced_headers"`
+	SyncedBlocks  int     `json:"synced_blocks"`
+	Inbound       bool    `json:"inbound"`
+}
+
 // RPCError defines rpc error returned by backend
 type RPCError struct {
 	Code    int    `json:"code"`
@@ -311,6 +327,7 @@ type BlockChain interface {
 	GetSubversion() string
 	GetCoinName() string
 	GetChainInfo() (*ChainInfo, error)
+	GetPeerInfo() ([]PeerInfo, error)
 	// requests
 	GetBestBlockHash() (string, error)
 	GetBestBlockHeight() (uint32, error)

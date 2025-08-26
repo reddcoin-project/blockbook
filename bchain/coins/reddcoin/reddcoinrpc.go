@@ -109,6 +109,11 @@ func (b *ReddcoinRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	}, nil
 }
 
+// GetPeerInfo returns info about connected peers
+func (b *ReddcoinRPC) GetPeerInfo() ([]bchain.PeerInfo, error) {
+	return b.BitcoinRPC.GetPeerInfo()
+}
+
 // GetBlock returns block with given hash.
 func (s *ReddcoinRPC) GetBlock(hash string, height uint32) (*bchain.Block, error) {
 	var err error

@@ -154,6 +154,7 @@ func (s *PublicServer) ConnectFullPublicInterface() {
 		serveMux.HandleFunc(path+"spending/", s.htmlTemplateHandler(s.explorerSpendingTx))
 		serveMux.HandleFunc(path+"sendtx", s.htmlTemplateHandler(s.explorerSendTx))
 		serveMux.HandleFunc(path+"mempool", s.htmlTemplateHandler(s.explorerMempool))
+		serveMux.HandleFunc(path+"peers", s.htmlTemplateHandler(s.explorerPeers))
 		if s.chainParser.GetChainType() == bchain.ChainEthereumType {
 			serveMux.HandleFunc(path+"nft/", s.htmlTemplateHandler(s.explorerNftDetail))
 		}
@@ -215,6 +216,7 @@ func (s *PublicServer) ConnectFullPublicInterface() {
 	serveMux.HandleFunc(path+"api/v2/tickers/", s.jsonHandler(s.apiTickers, apiV2))
 	serveMux.HandleFunc(path+"api/v2/multi-tickers/", s.jsonHandler(s.apiMultiTickers, apiV2))
 	serveMux.HandleFunc(path+"api/v2/tickers-list/", s.jsonHandler(s.apiAvailableVsCurrencies, apiV2))
+	serveMux.HandleFunc(path+"api/v2/peers/", s.jsonHandler(s.apiPeers, apiV2))
 	// socket.io interface
 	serveMux.Handle(path+"socket.io/", s.socketio.GetHandler())
 	// websocket interface
@@ -370,6 +372,7 @@ const (
 	sendTransactionTpl
 	mempoolTpl
 	nftDetailTpl
+	peersTpl
 
 	publicTplCount
 )
@@ -413,6 +416,23 @@ type TemplateData struct {
 	TxDate                   string
 	TxSecondaryCoinRate      float64
 	TxTicker                 *common.CurrencyRatesTicker
+	Peers                    []PeerInfo
+}
+
+type PeerInfo struct {
+	ID            int     `json:"id"`
+	Addr          string  `json:"addr"`
+	Version       int     `json:"version"`
+	Services      string  `json:"services"`
+	ConnTime      int64   `json:"conntime"`
+	LastSend      int64   `json:"lastsend"`
+	LastRecv      int64   `json:"lastrecv"`
+	BytesSent     int64   `json:"bytessent"`
+	BytesRecv     int64   `json:"bytesrecv"`
+	PingTime      float64 `json:"pingtime"`
+	SyncedHeaders int     `json:"synced_headers"`
+	SyncedBlocks  int     `json:"synced_blocks"`
+	Inbound       bool    `json:"inbound"`
 }
 
 func (s *PublicServer) parseTemplates() []*template.Template {
@@ -441,6 +461,9 @@ func (s *PublicServer) parseTemplates() []*template.Template {
 		"tokenCount":               tokenCount,
 		"hasPrefix":                strings.HasPrefix,
 		"jsStr":                    jsStr,
+		"formatBytes":              formatBytes,
+		"unixTime":                 unixTime,
+		"lower":                    strings.ToLower,
 	}
 	var createTemplate func(filenames ...string) *template.Template
 	if s.debug {
@@ -498,6 +521,7 @@ func (s *PublicServer) parseTemplates() []*template.Template {
 	}
 	t[xpubTpl] = createTemplate("./static/templates/xpub.html", "./static/templates/txdetail.html", "./static/templates/paging.html", "./static/templates/base.html")
 	t[mempoolTpl] = createTemplate("./static/templates/mempool.html", "./static/templates/paging.html", "./static/templates/base.html")
+	t[peersTpl] = createTemplate("./static/templates/peers.html", "./static/templates/base.html")
 	return t
 }
 
@@ -1092,6 +1116,40 @@ func (s *PublicServer) explorerMempool(w http.ResponseWriter, r *http.Request) (
 	return mempoolTpl, data, nil
 }
 
+func (s *PublicServer) explorerPeers(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error) {
+	s.metrics.ExplorerViews.With(common.Labels{"action": "peers"}).Inc()
+	
+	peers, err := s.chain.GetPeerInfo()
+	if err != nil {
+		// If error, just return empty peers list
+		glog.Warning("Failed to get peer info: ", err)
+		peers = []bchain.PeerInfo{}
+	}
+	
+	data := s.newTemplateData(r)
+	// Convert bchain.PeerInfo to server.PeerInfo
+	serverPeers := make([]PeerInfo, len(peers))
+	for i, p := range peers {
+		serverPeers[i] = PeerInfo{
+			ID:            p.ID,
+			Addr:          p.Addr,
+			Version:       p.Version,
+			Services:      p.Services,
+			ConnTime:      p.ConnTime,
+			LastSend:      p.LastSend,
+			LastRecv:      p.LastRecv,
+			BytesSent:     p.BytesSent,
+			BytesRecv:     p.BytesRecv,
+			PingTime:      p.PingTime,
+			SyncedHeaders: p.SyncedHeaders,
+			SyncedBlocks:  p.SyncedBlocks,
+			Inbound:       p.Inbound,
+		}
+	}
+	data.Peers = serverPeers
+	return peersTpl, data, nil
+}
+
 func getPagingRange(page int, total int) ([]int, int, int) {
 	// total==-1 means total is unknown, show only prev/next buttons
 	if total >= 0 && total < 2 {
@@ -1555,6 +1613,15 @@ func (s *PublicServer) apiAvailableVsCurrencies(r *http.Request, apiVersion int)
 	token := strings.ToLower(r.URL.Query().Get("token"))
 	result, err := s.api.GetAvailableVsCurrencies(timestamp, token)
 	return result, err
+}
+
+func (s *PublicServer) apiPeers(r *http.Request, apiVersion int) (interface{}, error) {
+	s.metrics.ExplorerViews.With(common.Labels{"action": "api-peers"}).Inc()
+	peers, err := s.chain.GetPeerInfo()
+	if err != nil {
+		return nil, api.NewAPIError(fmt.Sprintf("Failed to get peer info: %v", err), true)
+	}
+	return peers, nil
 }
 
 // apiTickers returns FiatRates ticker prices for the specified block or timestamp.

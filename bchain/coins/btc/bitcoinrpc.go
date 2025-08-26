@@ -498,6 +498,63 @@ func (b *BitcoinRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	return rv, nil
 }
 
+// getpeerinfo RPC structs
+type CmdGetPeerInfo struct {
+	Method string `json:"method"`
+}
+
+type ResGetPeerInfo struct {
+	Error  *bchain.RPCError `json:"error"`
+	Result []struct {
+		ID            int               `json:"id"`
+		Addr          string            `json:"addr"`
+		Version       int               `json:"version"`
+		Services      string            `json:"services"`
+		ConnTime      int64             `json:"conntime"`
+		LastSend      int64             `json:"lastsend"`
+		LastRecv      int64             `json:"lastrecv"`
+		BytesSent     int64             `json:"bytessent"`
+		BytesRecv     int64             `json:"bytesrecv"`
+		PingTime      float64           `json:"pingtime"`
+		SyncedHeaders int               `json:"synced_headers"`
+		SyncedBlocks  int               `json:"synced_blocks"`
+		Inbound       bool              `json:"inbound"`
+	} `json:"result"`
+}
+
+// GetPeerInfo returns info about connected peers
+func (b *BitcoinRPC) GetPeerInfo() ([]bchain.PeerInfo, error) {
+	glog.V(1).Info("rpc: getpeerinfo")
+	res := ResGetPeerInfo{}
+	err := b.Call(&CmdGetPeerInfo{Method: "getpeerinfo"}, &res)
+	if err != nil {
+		return nil, err
+	}
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	
+	peers := make([]bchain.PeerInfo, len(res.Result))
+	for i, p := range res.Result {
+		peers[i] = bchain.PeerInfo{
+			ID:            p.ID,
+			Addr:          p.Addr,
+			Version:       p.Version,
+			Services:      p.Services,
+			ConnTime:      p.ConnTime,
+			LastSend:      p.LastSend,
+			LastRecv:      p.LastRecv,
+			BytesSent:     p.BytesSent,
+			BytesRecv:     p.BytesRecv,
+			PingTime:      p.PingTime,
+			SyncedHeaders: p.SyncedHeaders,
+			SyncedBlocks:  p.SyncedBlocks,
+			Inbound:       p.Inbound,
+		}
+	}
+	return peers, nil
+}
+
 // IsErrBlockNotFound returns true if error means block was not found
 func IsErrBlockNotFound(err *bchain.RPCError) bool {
 	return err.Message == "Block not found" ||

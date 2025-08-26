@@ -453,3 +453,24 @@ func formatBigInt(i *big.Int) template.HTML {
 	appendSeparatedNumberSpans(&rv, s, "ns")
 	return template.HTML(rv.String())
 }
+
+func formatBytes(bytes int64) template.HTML {
+	const unit = 1024
+	if bytes < unit {
+		return template.HTML(fmt.Sprintf("%d B", bytes))
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return template.HTML(fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp]))
+}
+
+func unixTime(t int64) template.HTML {
+	if t <= 0 {
+		return ""
+	}
+	tm := time.Unix(t, 0)
+	return template.HTML(tm.UTC().Format("2006-01-02 15:04:05"))
+}

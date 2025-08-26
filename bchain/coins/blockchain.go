@@ -232,6 +232,11 @@ func (c *blockChainWithMetrics) GetChainInfo() (v *bchain.ChainInfo, err error) 
 	return c.b.GetChainInfo()
 }
 
+func (c *blockChainWithMetrics) GetPeerInfo() (v []bchain.PeerInfo, err error) {
+	defer func(s time.Time) { c.observeRPCLatency("GetPeerInfo", s, err) }(time.Now())
+	return c.b.GetPeerInfo()
+}
+
 func (c *blockChainWithMetrics) GetBestBlockHash() (v string, err error) {
 	defer func(s time.Time) { c.observeRPCLatency("GetBestBlockHash", s, err) }(time.Now())
 	return c.b.GetBestBlockHash()

@@ -1,0 +1,186 @@
+{{define "specific"}}{{$peers := .Peers}}{{$data := .}}
+<div class="row">
+    <div class="col-lg-12">
+        <h1>Network Peers</h1>
+        <h5 class="mb-3">{{len $peers}} connected peers</h5>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-lg-12">
+        <div class="alert alert-info">
+            <h6><i class="fas fa-info-circle"></i> Instructions</h6>
+            <ul class="mb-0">
+                <li>View peer information including IP addresses, versions, and connection details</li>
+                <li>Click "Copy Configuration" to copy peer addresses to clipboard for your node configuration</li>
+                <li>Click "Download Configuration" to save peer list as a text file</li>
+                <li>Use these peers as seed nodes or addnode entries in your configuration file</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-lg-12">
+        <button class="btn btn-primary" id="copyPeersBtn" onclick="copyPeers()">
+            <i class="fas fa-copy"></i> Copy Configuration
+        </button>
+        <button class="btn btn-success" id="downloadPeersBtn" onclick="downloadPeers()">
+            <i class="fas fa-download"></i> Download Configuration
+        </button>
+        <button class="btn btn-secondary" id="refreshPeersBtn" onclick="location.reload()">
+            <i class="fas fa-sync-alt"></i> Refresh
+        </button>
+    </div>
+</div>
+
+{{if $peers}}
+<div class="table-responsive">
+    <table class="table data-table table-hover">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Address</th>
+                <th>Version</th>
+                <th>Services</th>
+                <th>Connection Time</th>
+                <th>Last Send</th>
+                <th>Last Receive</th>
+                <th>Bytes Sent</th>
+                <th>Bytes Received</th>
+                <th>Ping Time</th>
+                <th>Synced Headers</th>
+                <th>Synced Blocks</th>
+                <th>Inbound</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range $index, $peer := $peers}}
+            <tr>
+                <td>{{$peer.ID}}</td>
+                <td class="peer-address">{{$peer.Addr}}</td>
+                <td>{{$peer.Version}}</td>
+                <td>{{$peer.Services}}</td>
+                <td>{{unixTime $peer.ConnTime}}</td>
+                <td>{{if $peer.LastSend}}{{unixTime $peer.LastSend}}{{else}}-{{end}}</td>
+                <td>{{if $peer.LastRecv}}{{unixTime $peer.LastRecv}}{{else}}-{{end}}</td>
+                <td>{{formatBytes $peer.BytesSent}}</td>
+                <td>{{formatBytes $peer.BytesRecv}}</td>
+                <td>{{if $peer.PingTime}}{{printf "%.2f" $peer.PingTime}} ms{{else}}-{{end}}</td>
+                <td>{{$peer.SyncedHeaders}}</td>
+                <td>{{$peer.SyncedBlocks}}</td>
+                <td>{{if $peer.Inbound}}Yes{{else}}No{{end}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+</div>
+{{else}}
+<div class="alert alert-warning">
+    <i class="fas fa-exclamation-triangle"></i> No peer information available at this time.
+</div>
+{{end}}
+
+<script>
+function getPeerAddresses() {
+    const peerElements = document.getElementsByClassName('peer-address');
+    const peers = [];
+    for (let i = 0; i < peerElements.length; i++) {
+        const addr = peerElements[i].textContent.trim();
+        if (addr) {
+            peers.push(addr);
+        }
+    }
+    return peers;
+}
+
+function copyPeers() {
+    const peers = getPeerAddresses();
+    if (peers.length === 0) {
+        alert('No peers available to copy');
+        return;
+    }
+    
+    const config = '# Peer configuration for {{.CoinName}}\n' +
+                   '# Add these to your configuration file\n\n' +
+                   peers.map(p => `addnode=${p}`).join('\n');
+    
+    navigator.clipboard.writeText(config).then(function() {
+        const btn = document.getElementById('copyPeersBtn');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        btn.classList.remove('btn-primary');
+        btn.classList.add('btn-success');
+        
+        setTimeout(function() {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-primary');
+        }, 2000);
+    }, function(err) {
+        alert('Failed to copy: ' + err);
+    });
+}
+
+function downloadPeers() {
+    const peers = getPeerAddresses();
+    if (peers.length === 0) {
+        alert('No peers available to download');
+        return;
+    }
+    
+    const config = '# Peer configuration for {{.CoinName}}\n' +
+                   '# Generated on ' + new Date().toISOString() + '\n' +
+                   '# Add these to your configuration file\n\n' +
+                   peers.map(p => `addnode=${p}`).join('\n') + '\n';
+    
+    const blob = new Blob([config], { type: 'text/plain' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = '{{.CoinName | lower}}_peers.txt';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    
+    const btn = document.getElementById('downloadPeersBtn');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-check"></i> Downloaded!';
+    
+    setTimeout(function() {
+        btn.innerHTML = originalHTML;
+    }, 2000);
+}
+</script>
+
+<style>
+.peer-address {
+    font-family: monospace;
+    font-size: 0.9em;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* Make ID column narrower - expecting 6 characters */
+.table th:first-child,
+.table td:first-child {
+    width: 80px;
+    max-width: 80px;
+}
+
+/* Center align the Inbound column content */
+.table th:last-child,
+.table td:last-child {
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .table {
+        font-size: 0.85em;
+    }
+}
+</style>
+{{end}}

@@ -400,6 +400,13 @@ func (b *EthereumRPC) getConsensusVersion() string {
 	return v.Data.Version
 }
 
+// GetPeerInfo returns info about connected peers - not supported for Ethereum
+func (b *EthereumRPC) GetPeerInfo() ([]bchain.PeerInfo, error) {
+	// Ethereum nodes typically don't expose peer information through standard RPC
+	// Return empty array instead of error to allow the page to work
+	return []bchain.PeerInfo{}, nil
+}
+
 // GetChainInfo returns information about the connected backend
 func (b *EthereumRPC) GetChainInfo() (*bchain.ChainInfo, error) {
 	h, err := b.getBestHeader()
