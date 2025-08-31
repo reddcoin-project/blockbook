@@ -25,7 +25,7 @@
 
 **Database structure:**
 
-The database structure described here is of Blockbook version **0.4.0** (internal data format version 6).
+The database structure described here is of Blockbook version **0.4.1** (internal data format version 6).
 
 The database structure for **Bitcoin type** and **Ethereum type** coins is different. Column families used for both types:
 
