@@ -85,6 +85,12 @@ var (
 	resyncMempoolPeriodMs = flag.Int("resyncmempoolperiod", 60017, "resync mempool period in milliseconds")
 
 	extendedIndex = flag.Bool("extendedindex", false, "if true, create index of input txids and spending transactions")
+
+	// HTTP server timeout flags
+	httpReadTimeout       = flag.Int("httpreadtimeout", 30, "HTTP server read timeout in seconds")
+	httpWriteTimeout      = flag.Int("httpwritetimeout", 60, "HTTP server write timeout in seconds")
+	httpIdleTimeout       = flag.Int("httpidletimeout", 120, "HTTP server idle timeout in seconds")
+	httpReadHeaderTimeout = flag.Int("httpreadheadertimeout", 10, "HTTP server read header timeout in seconds")
 )
 
 var (
@@ -397,7 +403,11 @@ func getBlockChainWithRetry(coin string, configFile string, pushHandler func(bch
 }
 
 func startInternalServer() (*server.InternalServer, error) {
-	internalServer, err := server.NewInternalServer(*internalBinding, *certFiles, index, chain, mempool, txCache, metrics, internalState, fiatRates)
+	internalServer, err := server.NewInternalServer(*internalBinding, *certFiles, index, chain, mempool, txCache, metrics, internalState, fiatRates,
+		time.Duration(*httpReadTimeout)*time.Second,
+		time.Duration(*httpWriteTimeout)*time.Second,
+		time.Duration(*httpIdleTimeout)*time.Second,
+		time.Duration(*httpReadHeaderTimeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
@@ -417,7 +427,11 @@ func startInternalServer() (*server.InternalServer, error) {
 
 func startPublicServer() (*server.PublicServer, error) {
 	// start public server in limited functionality, extend it after sync is finished by calling ConnectFullPublicInterface
-	publicServer, err := server.NewPublicServer(*publicBinding, *certFiles, index, chain, mempool, txCache, *explorerURL, metrics, internalState, fiatRates, *debugMode)
+	publicServer, err := server.NewPublicServer(*publicBinding, *certFiles, index, chain, mempool, txCache, *explorerURL, metrics, internalState, fiatRates, *debugMode,
+		time.Duration(*httpReadTimeout)*time.Second,
+		time.Duration(*httpWriteTimeout)*time.Second,
+		time.Duration(*httpIdleTimeout)*time.Second,
+		time.Duration(*httpReadHeaderTimeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}
