@@ -832,7 +832,7 @@ func (s *PublicServer) explorerSpendingTx(w http.ResponseWriter, r *http.Request
 		tx := parts[len(parts)-2]
 		n, ec := strconv.Atoi(parts[len(parts)-1])
 		if ec == nil {
-			spendingTx, err := s.api.GetSpendingTxid(tx, n)
+			spendingTx, err := s.api.GetSpendingTxidContext(r.Context(), tx, n)
 			if err == nil && spendingTx != "" {
 				http.Redirect(w, r, joinURL("/tx/", spendingTx), http.StatusFound)
 				return noTpl, nil, nil
@@ -926,7 +926,7 @@ func (s *PublicServer) explorerAddress(w http.ResponseWriter, r *http.Request) (
 	page, _, _, filter, filterParam, _ := s.getAddressQueryParams(r, api.AccountDetailsTxHistoryLight, txsOnPage)
 	// do not allow details to be changed by query params
 	data := s.newTemplateData(r)
-	address, err := s.api.GetAddress(addressParam, page, txsOnPage, api.AccountDetailsTxHistoryLight, filter, strings.ToLower(data.SecondaryCoin))
+	address, err := s.api.GetAddressContext(r.Context(), addressParam, page, txsOnPage, api.AccountDetailsTxHistoryLight, filter, strings.ToLower(data.SecondaryCoin))
 	if err != nil {
 		return errorTpl, nil, err
 	}
@@ -1437,7 +1437,7 @@ func (s *PublicServer) apiAddress(r *http.Request, apiVersion int) (interface{},
 	s.metrics.ExplorerViews.With(common.Labels{"action": "api-address"}).Inc()
 	page, pageSize, details, filter, _, _ := s.getAddressQueryParams(r, api.AccountDetailsTxidHistory, txsInAPI)
 	secondaryCoin := strings.ToLower(r.URL.Query().Get("secondary"))
-	address, err = s.api.GetAddress(addressParam, page, pageSize, details, filter, secondaryCoin)
+	address, err = s.api.GetAddressContext(r.Context(), addressParam, page, pageSize, details, filter, secondaryCoin)
 	if err == nil && apiVersion == apiV1 {
 		return s.api.AddressToV1(address), nil
 	}

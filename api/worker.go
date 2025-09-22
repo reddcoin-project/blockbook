@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -107,8 +108,18 @@ func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) err
 
 // GetSpendingTxid returns transaction id of transaction that spent given output
 func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
+	return w.GetSpendingTxidContext(context.Background(), txid, n)
+}
+
+// GetSpendingTxidContext is the context-aware version of GetSpendingTxid
+func (w *Worker) GetSpendingTxidContext(ctx context.Context, txid string, n int) (string, error) {
+	// Check for context cancellation before expensive operations
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
 	if w.db.HasExtendedIndex() {
-		tsp, err := w.db.GetTxAddresses(txid)
+		tsp, err := w.db.GetTxAddressesContext(ctx, txid)
 		if err != nil {
 			return "", err
 		} else if tsp == nil {
@@ -1308,6 +1319,11 @@ func setIsOwnAddress(tx *Tx, address string) {
 
 // GetAddress computes address value and gets transactions for given address
 func (w *Worker) GetAddress(address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter, secondaryCoin string) (*Address, error) {
+	return w.GetAddressContext(context.Background(), address, page, txsOnPage, option, filter, secondaryCoin)
+}
+
+// GetAddressContext is the context-aware version of GetAddress
+func (w *Worker) GetAddressContext(ctx context.Context, address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter, secondaryCoin string) (*Address, error) {
 	start := time.Now()
 	page--
 	if page < 0 {

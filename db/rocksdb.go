@@ -2,6 +2,7 @@ package db
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -268,6 +269,11 @@ func (d *RocksDB) GetTransactions(address string, lower uint32, higher uint32, f
 // GetAddrDescTransactions finds all input/output transactions for address descriptor
 // Transaction are passed to callback function in the order from newest block to the oldest
 func (d *RocksDB) GetAddrDescTransactions(addrDesc bchain.AddressDescriptor, lower uint32, higher uint32, fn GetTransactionsCallback) (err error) {
+	return d.GetAddrDescTransactionsContext(context.Background(), addrDesc, lower, higher, fn)
+}
+
+// GetAddrDescTransactionsContext is the context-aware version of GetAddrDescTransactions
+func (d *RocksDB) GetAddrDescTransactionsContext(ctx context.Context, addrDesc bchain.AddressDescriptor, lower uint32, higher uint32, fn GetTransactionsCallback) (err error) {
 	txidUnpackedLen := d.chainParser.PackedTxidLen()
 	addrDescLen := len(addrDesc)
 	startKey := packAddressKey(addrDesc, higher)
@@ -276,6 +282,11 @@ func (d *RocksDB) GetAddrDescTransactions(addrDesc bchain.AddressDescriptor, low
 	it := d.db.NewIteratorCF(d.ro, d.cfh[cfAddresses])
 	defer it.Close()
 	for it.Seek(startKey); it.Valid(); it.Next() {
+		// Check for context cancellation periodically
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+
 		key := it.Key().Data()
 		if bytes.Compare(key, stopKey) > 0 {
 			break
@@ -976,6 +987,16 @@ func (d *RocksDB) getTxAddresses(btxID []byte) (*TxAddresses, error) {
 
 // GetTxAddresses returns TxAddresses for given txid or nil if not found
 func (d *RocksDB) GetTxAddresses(txid string) (*TxAddresses, error) {
+	return d.GetTxAddressesContext(context.Background(), txid)
+}
+
+// GetTxAddressesContext is the context-aware version of GetTxAddresses
+func (d *RocksDB) GetTxAddressesContext(ctx context.Context, txid string) (*TxAddresses, error) {
+	// Check for context cancellation before expensive operations
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
+	}
+
 	btxID, err := d.chainParser.PackTxid(txid)
 	if err != nil {
 		return nil, err
