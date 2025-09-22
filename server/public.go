@@ -83,8 +83,12 @@ func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bch
 	addr, path := splitBinding(binding)
 	serveMux := http.NewServeMux()
 	https := &http.Server{
-		Addr:    addr,
-		Handler: serveMux,
+		Addr:              addr,
+		Handler:           serveMux,
+		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
+		WriteTimeout:      60 * time.Second,  // Time to write response
+		IdleTimeout:       120 * time.Second, // Keep-alive timeout
+		ReadHeaderTimeout: 10 * time.Second,  // Prevent slowloris attacks
 	}
 
 	s := &PublicServer{
