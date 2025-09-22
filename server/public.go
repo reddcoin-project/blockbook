@@ -3,10 +3,12 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"io"
 	"math/big"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -59,11 +61,12 @@ type PublicServer struct {
 	is                  *common.InternalState
 	fiatRates           *fiat.FiatRates
 	useSatsAmountFormat bool
+	requestTimeout      time.Duration
 }
 
 // NewPublicServer creates new public server http interface to blockbook and returns its handle
 // only basic functionality is mapped, to map all functions, call
-func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, explorerURL string, metrics *common.Metrics, is *common.InternalState, fiatRates *fiat.FiatRates, debugMode bool, readTimeout, writeTimeout, idleTimeout, readHeaderTimeout time.Duration) (*PublicServer, error) {
+func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, explorerURL string, metrics *common.Metrics, is *common.InternalState, fiatRates *fiat.FiatRates, debugMode bool, readTimeout, writeTimeout, idleTimeout, readHeaderTimeout, requestTimeout time.Duration) (*PublicServer, error) {
 
 	api, err := api.NewWorker(db, chain, mempool, txCache, metrics, is, fiatRates)
 	if err != nil {
@@ -112,6 +115,7 @@ func NewPublicServer(binding string, certFiles string, db *db.RocksDB, chain bch
 		is:                  is,
 		fiatRates:           fiatRates,
 		useSatsAmountFormat: chain.GetChainParser().GetChainType() == bchain.ChainBitcoinType && chain.GetChainParser().AmountDecimals() == 8,
+		requestTimeout:      requestTimeout,
 	}
 	s.htmlTemplates.newTemplateData = s.newTemplateData
 	s.htmlTemplates.newTemplateDataWithError = s.newTemplateDataWithError
@@ -149,18 +153,18 @@ func (s *PublicServer) ConnectFullPublicInterface() {
 	serveMux.Handle(path+"test-websocket.html", http.FileServer(http.Dir("./static/")))
 	if s.internalExplorer {
 		// internal explorer handlers
-		serveMux.HandleFunc(path+"tx/", s.htmlTemplateHandler(s.explorerTx))
-		serveMux.HandleFunc(path+"address/", s.htmlTemplateHandler(s.explorerAddress))
-		serveMux.HandleFunc(path+"xpub/", s.htmlTemplateHandler(s.explorerXpub))
+		serveMux.HandleFunc(path+"tx/", s.htmlTemplateHandlerWithTimeout(s.explorerTx))
+		serveMux.HandleFunc(path+"address/", s.htmlTemplateHandlerWithTimeout(s.explorerAddress))
+		serveMux.HandleFunc(path+"xpub/", s.htmlTemplateHandlerWithTimeout(s.explorerXpub))
 		serveMux.HandleFunc(path+"search/", s.htmlTemplateHandler(s.explorerSearch))
-		serveMux.HandleFunc(path+"blocks", s.htmlTemplateHandler(s.explorerBlocks))
-		serveMux.HandleFunc(path+"block/", s.htmlTemplateHandler(s.explorerBlock))
-		serveMux.HandleFunc(path+"spending/", s.htmlTemplateHandler(s.explorerSpendingTx))
-		serveMux.HandleFunc(path+"sendtx", s.htmlTemplateHandler(s.explorerSendTx))
-		serveMux.HandleFunc(path+"mempool", s.htmlTemplateHandler(s.explorerMempool))
-		serveMux.HandleFunc(path+"peers", s.htmlTemplateHandler(s.explorerPeers))
+		serveMux.HandleFunc(path+"blocks", s.htmlTemplateHandlerWithTimeout(s.explorerBlocks))
+		serveMux.HandleFunc(path+"block/", s.htmlTemplateHandlerWithTimeout(s.explorerBlock))
+		serveMux.HandleFunc(path+"spending/", s.htmlTemplateHandlerWithTimeout(s.explorerSpendingTx))
+		serveMux.HandleFunc(path+"sendtx", s.htmlTemplateHandlerWithTimeout(s.explorerSendTx))
+		serveMux.HandleFunc(path+"mempool", s.htmlTemplateHandlerWithTimeout(s.explorerMempool))
+		serveMux.HandleFunc(path+"peers", s.htmlTemplateHandlerWithTimeout(s.explorerPeers))
 		if s.chainParser.GetChainType() == bchain.ChainEthereumType {
-			serveMux.HandleFunc(path+"nft/", s.htmlTemplateHandler(s.explorerNftDetail))
+			serveMux.HandleFunc(path+"nft/", s.htmlTemplateHandlerWithTimeout(s.explorerNftDetail))
 		}
 	} else {
 		// redirect to wallet requests for tx and address, possibly to external site
@@ -178,49 +182,49 @@ func (s *PublicServer) ConnectFullPublicInterface() {
 	} else {
 		apiDefault = apiV1
 		// legacy v1 format
-		serveMux.HandleFunc(path+"api/v1/block-index/", s.jsonHandler(s.apiBlockIndex, apiV1))
-		serveMux.HandleFunc(path+"api/v1/tx-specific/", s.jsonHandler(s.apiTxSpecific, apiV1))
-		serveMux.HandleFunc(path+"api/v1/tx/", s.jsonHandler(s.apiTx, apiV1))
-		serveMux.HandleFunc(path+"api/v1/address/", s.jsonHandler(s.apiAddress, apiV1))
-		serveMux.HandleFunc(path+"api/v1/utxo/", s.jsonHandler(s.apiUtxo, apiV1))
-		serveMux.HandleFunc(path+"api/v1/block/", s.jsonHandler(s.apiBlock, apiV1))
-		serveMux.HandleFunc(path+"api/v1/sendtx/", s.jsonHandler(s.apiSendTx, apiV1))
-		serveMux.HandleFunc(path+"api/v1/estimatefee/", s.jsonHandler(s.apiEstimateFee, apiV1))
+		serveMux.HandleFunc(path+"api/v1/block-index/", s.jsonHandlerWithTimeout(s.apiBlockIndex, apiV1))
+		serveMux.HandleFunc(path+"api/v1/tx-specific/", s.jsonHandlerWithTimeout(s.apiTxSpecific, apiV1))
+		serveMux.HandleFunc(path+"api/v1/tx/", s.jsonHandlerWithTimeout(s.apiTx, apiV1))
+		serveMux.HandleFunc(path+"api/v1/address/", s.jsonHandlerWithTimeout(s.apiAddress, apiV1))
+		serveMux.HandleFunc(path+"api/v1/utxo/", s.jsonHandlerWithTimeout(s.apiUtxo, apiV1))
+		serveMux.HandleFunc(path+"api/v1/block/", s.jsonHandlerWithTimeout(s.apiBlock, apiV1))
+		serveMux.HandleFunc(path+"api/v1/sendtx/", s.jsonHandlerWithTimeout(s.apiSendTx, apiV1))
+		serveMux.HandleFunc(path+"api/v1/estimatefee/", s.jsonHandlerWithTimeout(s.apiEstimateFee, apiV1))
 	}
-	serveMux.HandleFunc(path+"api/block-index/", s.jsonHandler(s.apiBlockIndex, apiDefault))
-	serveMux.HandleFunc(path+"api/block-filters/", s.jsonHandler(s.apiBlockFilters, apiDefault))
-	serveMux.HandleFunc(path+"api/tx-specific/", s.jsonHandler(s.apiTxSpecific, apiDefault))
-	serveMux.HandleFunc(path+"api/tx/", s.jsonHandler(s.apiTx, apiDefault))
-	serveMux.HandleFunc(path+"api/rawtx/", s.jsonHandler(s.apiRawTx, apiDefault))
-	serveMux.HandleFunc(path+"api/address/", s.jsonHandler(s.apiAddress, apiDefault))
-	serveMux.HandleFunc(path+"api/xpub/", s.jsonHandler(s.apiXpub, apiDefault))
-	serveMux.HandleFunc(path+"api/utxo/", s.jsonHandler(s.apiUtxo, apiDefault))
-	serveMux.HandleFunc(path+"api/block/", s.jsonHandler(s.apiBlock, apiDefault))
-	serveMux.HandleFunc(path+"api/rawblock/", s.jsonHandler(s.apiBlockRaw, apiDefault))
-	serveMux.HandleFunc(path+"api/sendtx/", s.jsonHandler(s.apiSendTx, apiDefault))
-	serveMux.HandleFunc(path+"api/estimatefee/", s.jsonHandler(s.apiEstimateFee, apiDefault))
-	serveMux.HandleFunc(path+"api/balancehistory/", s.jsonHandler(s.apiBalanceHistory, apiDefault))
+	serveMux.HandleFunc(path+"api/block-index/", s.jsonHandlerWithTimeout(s.apiBlockIndex, apiDefault))
+	serveMux.HandleFunc(path+"api/block-filters/", s.jsonHandlerWithTimeout(s.apiBlockFilters, apiDefault))
+	serveMux.HandleFunc(path+"api/tx-specific/", s.jsonHandlerWithTimeout(s.apiTxSpecific, apiDefault))
+	serveMux.HandleFunc(path+"api/tx/", s.jsonHandlerWithTimeout(s.apiTx, apiDefault))
+	serveMux.HandleFunc(path+"api/rawtx/", s.jsonHandlerWithTimeout(s.apiRawTx, apiDefault))
+	serveMux.HandleFunc(path+"api/address/", s.jsonHandlerWithTimeout(s.apiAddress, apiDefault))
+	serveMux.HandleFunc(path+"api/xpub/", s.jsonHandlerWithTimeout(s.apiXpub, apiDefault))
+	serveMux.HandleFunc(path+"api/utxo/", s.jsonHandlerWithTimeout(s.apiUtxo, apiDefault))
+	serveMux.HandleFunc(path+"api/block/", s.jsonHandlerWithTimeout(s.apiBlock, apiDefault))
+	serveMux.HandleFunc(path+"api/rawblock/", s.jsonHandlerWithTimeout(s.apiBlockRaw, apiDefault))
+	serveMux.HandleFunc(path+"api/sendtx/", s.jsonHandlerWithTimeout(s.apiSendTx, apiDefault))
+	serveMux.HandleFunc(path+"api/estimatefee/", s.jsonHandlerWithTimeout(s.apiEstimateFee, apiDefault))
+	serveMux.HandleFunc(path+"api/balancehistory/", s.jsonHandlerWithTimeout(s.apiBalanceHistory, apiDefault))
 	serveMux.HandleFunc(path+"api/moneysupply/", s.plainTextHandler(s.apiMoneySupply, apiDefault))
 	serveMux.HandleFunc(path+"api/totalsupply/", s.plainTextHandler(s.apiTotalSupply, apiDefault))
 	serveMux.HandleFunc(path+"api/bestheight/", s.plainTextHandler(s.apiBlockheight, apiDefault))
 	// v2 format
-	serveMux.HandleFunc(path+"api/v2/block-index/", s.jsonHandler(s.apiBlockIndex, apiV2))
-	serveMux.HandleFunc(path+"api/v2/block-filters/", s.jsonHandler(s.apiBlockFilters, apiV2))
-	serveMux.HandleFunc(path+"api/v2/tx-specific/", s.jsonHandler(s.apiTxSpecific, apiV2))
-	serveMux.HandleFunc(path+"api/v2/tx/", s.jsonHandler(s.apiTx, apiV2))
-	serveMux.HandleFunc(path+"api/v2/address/", s.jsonHandler(s.apiAddress, apiV2))
-	serveMux.HandleFunc(path+"api/v2/xpub/", s.jsonHandler(s.apiXpub, apiV2))
-	serveMux.HandleFunc(path+"api/v2/utxo/", s.jsonHandler(s.apiUtxo, apiV2))
-	serveMux.HandleFunc(path+"api/v2/block/", s.jsonHandler(s.apiBlock, apiV2))
-	serveMux.HandleFunc(path+"api/v2/rawblock/", s.jsonHandler(s.apiBlockRaw, apiDefault))
-	serveMux.HandleFunc(path+"api/v2/sendtx/", s.jsonHandler(s.apiSendTx, apiV2))
-	serveMux.HandleFunc(path+"api/v2/estimatefee/", s.jsonHandler(s.apiEstimateFee, apiV2))
-	serveMux.HandleFunc(path+"api/v2/feestats/", s.jsonHandler(s.apiFeeStats, apiV2))
-	serveMux.HandleFunc(path+"api/v2/balancehistory/", s.jsonHandler(s.apiBalanceHistory, apiDefault))
-	serveMux.HandleFunc(path+"api/v2/tickers/", s.jsonHandler(s.apiTickers, apiV2))
-	serveMux.HandleFunc(path+"api/v2/multi-tickers/", s.jsonHandler(s.apiMultiTickers, apiV2))
-	serveMux.HandleFunc(path+"api/v2/tickers-list/", s.jsonHandler(s.apiAvailableVsCurrencies, apiV2))
-	serveMux.HandleFunc(path+"api/v2/peers/", s.jsonHandler(s.apiPeers, apiV2))
+	serveMux.HandleFunc(path+"api/v2/block-index/", s.jsonHandlerWithTimeout(s.apiBlockIndex, apiV2))
+	serveMux.HandleFunc(path+"api/v2/block-filters/", s.jsonHandlerWithTimeout(s.apiBlockFilters, apiV2))
+	serveMux.HandleFunc(path+"api/v2/tx-specific/", s.jsonHandlerWithTimeout(s.apiTxSpecific, apiV2))
+	serveMux.HandleFunc(path+"api/v2/tx/", s.jsonHandlerWithTimeout(s.apiTx, apiV2))
+	serveMux.HandleFunc(path+"api/v2/address/", s.jsonHandlerWithTimeout(s.apiAddress, apiV2))
+	serveMux.HandleFunc(path+"api/v2/xpub/", s.jsonHandlerWithTimeout(s.apiXpub, apiV2))
+	serveMux.HandleFunc(path+"api/v2/utxo/", s.jsonHandlerWithTimeout(s.apiUtxo, apiV2))
+	serveMux.HandleFunc(path+"api/v2/block/", s.jsonHandlerWithTimeout(s.apiBlock, apiV2))
+	serveMux.HandleFunc(path+"api/v2/rawblock/", s.jsonHandlerWithTimeout(s.apiBlockRaw, apiDefault))
+	serveMux.HandleFunc(path+"api/v2/sendtx/", s.jsonHandlerWithTimeout(s.apiSendTx, apiV2))
+	serveMux.HandleFunc(path+"api/v2/estimatefee/", s.jsonHandlerWithTimeout(s.apiEstimateFee, apiV2))
+	serveMux.HandleFunc(path+"api/v2/feestats/", s.jsonHandlerWithTimeout(s.apiFeeStats, apiV2))
+	serveMux.HandleFunc(path+"api/v2/balancehistory/", s.jsonHandlerWithTimeout(s.apiBalanceHistory, apiDefault))
+	serveMux.HandleFunc(path+"api/v2/tickers/", s.jsonHandlerWithTimeout(s.apiTickers, apiV2))
+	serveMux.HandleFunc(path+"api/v2/multi-tickers/", s.jsonHandlerWithTimeout(s.apiMultiTickers, apiV2))
+	serveMux.HandleFunc(path+"api/v2/tickers-list/", s.jsonHandlerWithTimeout(s.apiAvailableVsCurrencies, apiV2))
+	serveMux.HandleFunc(path+"api/v2/peers/", s.jsonHandlerWithTimeout(s.apiPeers, apiV2))
 	// socket.io interface
 	serveMux.Handle(path+"socket.io/", s.socketio.GetHandler())
 	// websocket interface
@@ -1122,14 +1126,14 @@ func (s *PublicServer) explorerMempool(w http.ResponseWriter, r *http.Request) (
 
 func (s *PublicServer) explorerPeers(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error) {
 	s.metrics.ExplorerViews.With(common.Labels{"action": "peers"}).Inc()
-	
+
 	peers, err := s.chain.GetPeerInfo()
 	if err != nil {
 		// If error, just return empty peers list
 		glog.Warning("Failed to get peer info: ", err)
 		peers = []bchain.PeerInfo{}
 	}
-	
+
 	data := s.newTemplateData(r)
 	// Convert bchain.PeerInfo to server.PeerInfo
 	serverPeers := make([]PeerInfo, len(peers))
@@ -1737,4 +1741,151 @@ func (s *PublicServer) apiEstimateFee(r *http.Request, apiVersion int) (interfac
 		}
 	}
 	return nil, api.NewAPIError("Missing parameter 'number of blocks'", true)
+}
+
+// jsonHandlerWithTimeout wraps jsonHandler with request timeout for slow operations
+func (s *PublicServer) jsonHandlerWithTimeout(handler func(r *http.Request, apiVersion int) (interface{}, error), apiVersion int) func(w http.ResponseWriter, r *http.Request) {
+	return s.jsonHandler(func(r *http.Request, apiVersion int) (interface{}, error) {
+		// Create a context with timeout for this specific request
+		ctx, cancel := context.WithTimeout(r.Context(), s.requestTimeout)
+		defer cancel()
+
+		// Replace request context with timeout context
+		r = r.WithContext(ctx)
+
+		// Channel to capture the result
+		type result struct {
+			data interface{}
+			err  error
+		}
+
+		resultChan := make(chan result, 1)
+
+		// Run the handler in a goroutine
+		go func() {
+			defer func() {
+				if panicValue := recover(); panicValue != nil {
+					resultChan <- result{nil, fmt.Errorf("handler panicked: %v", panicValue)}
+				}
+			}()
+
+			data, err := handler(r, apiVersion)
+			resultChan <- result{data, err}
+		}()
+
+		// Wait for either completion or timeout
+		select {
+		case res := <-resultChan:
+			return res.data, res.err
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				glog.Warningf("Request timeout after %v for %s %s from %s", s.requestTimeout, r.Method, r.URL.Path, getClientIP(r))
+				return nil, api.NewAPIError("Request timeout - operation took too long", true)
+			}
+			return nil, api.NewAPIError("Request cancelled", true)
+		}
+	}, apiVersion)
+}
+
+// getClientIP extracts the real client IP from the request
+func getClientIP(r *http.Request) string {
+	// Check X-Forwarded-For header first (from reverse proxy)
+	xff := r.Header.Get("X-Forwarded-For")
+	if xff != "" {
+		// X-Forwarded-For can contain multiple IPs, take the first one
+		ips := strings.Split(xff, ",")
+		ip := strings.TrimSpace(ips[0])
+		if net.ParseIP(ip) != nil {
+			return ip
+		}
+	}
+
+	// Check X-Real-IP header (from reverse proxy)
+	xri := r.Header.Get("X-Real-IP")
+	if xri != "" && net.ParseIP(xri) != nil {
+		return xri
+	}
+
+	// Fall back to RemoteAddr
+	ip, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return ip
+}
+
+// timeoutResponseWriter wraps http.ResponseWriter to track if headers have been written
+type timeoutResponseWriter struct {
+	http.ResponseWriter
+	headerWritten bool
+}
+
+func (w *timeoutResponseWriter) WriteHeader(statusCode int) {
+	if !w.headerWritten {
+		w.headerWritten = true
+		w.ResponseWriter.WriteHeader(statusCode)
+	}
+}
+
+func (w *timeoutResponseWriter) Write(data []byte) (int, error) {
+	if !w.headerWritten {
+		w.headerWritten = true
+	}
+	return w.ResponseWriter.Write(data)
+}
+
+// htmlTemplateHandlerWithTimeout wraps htmlTemplateHandler with request timeout for slow operations
+func (s *PublicServer) htmlTemplateHandlerWithTimeout(handler func(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error)) func(w http.ResponseWriter, r *http.Request) {
+	return s.htmlTemplateHandler(func(w http.ResponseWriter, r *http.Request) (tpl, *TemplateData, error) {
+		// Create a context with timeout for this specific request
+		ctx, cancel := context.WithTimeout(r.Context(), s.requestTimeout)
+		defer cancel()
+
+		// Replace request context with timeout context
+		r = r.WithContext(ctx)
+
+		// Wrap response writer to track header writes
+		wrappedW := &timeoutResponseWriter{ResponseWriter: w, headerWritten: false}
+
+		// Channel to capture the result
+		type result struct {
+			tpl  tpl
+			data *TemplateData
+			err  error
+		}
+
+		resultChan := make(chan result, 1)
+
+		// Run the handler in a goroutine
+		go func() {
+			defer func() {
+				if panicValue := recover(); panicValue != nil {
+					resultChan <- result{errorInternalTpl, s.newTemplateDataWithError(&api.APIError{Text: fmt.Sprintf("Handler panicked: %v", panicValue)}, r), nil}
+				}
+			}()
+
+			tpl, data, err := handler(wrappedW, r)
+			resultChan <- result{tpl, data, err}
+		}()
+
+		// Wait for either completion or timeout
+		select {
+		case res := <-resultChan:
+			return res.tpl, res.data, res.err
+		case <-ctx.Done():
+			// Check if headers were already written by redirect or other response
+			if wrappedW.headerWritten {
+				// Headers already written, can't send timeout error template
+				// Return noTpl to prevent further template processing
+				glog.Warningf("HTML request timeout after %v for %s %s from %s (response already started)", s.requestTimeout, r.Method, r.URL.Path, getClientIP(r))
+				return noTpl, nil, nil
+			}
+
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				glog.Warningf("HTML request timeout after %v for %s %s from %s", s.requestTimeout, r.Method, r.URL.Path, getClientIP(r))
+				return errorTpl, s.newTemplateDataWithError(&api.APIError{Text: "Request timeout - operation took too long", Public: true}, r), nil
+			}
+			return errorTpl, s.newTemplateDataWithError(&api.APIError{Text: "Request cancelled", Public: true}, r), nil
+		}
+	})
 }

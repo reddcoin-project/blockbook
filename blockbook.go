@@ -91,6 +91,7 @@ var (
 	httpWriteTimeout      = flag.Int("httpwritetimeout", 60, "HTTP server write timeout in seconds")
 	httpIdleTimeout       = flag.Int("httpidletimeout", 120, "HTTP server idle timeout in seconds")
 	httpReadHeaderTimeout = flag.Int("httpreadheadertimeout", 10, "HTTP server read header timeout in seconds")
+	requestTimeout        = flag.Int("requesttimeout", 45, "individual request timeout in seconds for slow operations")
 )
 
 var (
@@ -431,7 +432,8 @@ func startPublicServer() (*server.PublicServer, error) {
 		time.Duration(*httpReadTimeout)*time.Second,
 		time.Duration(*httpWriteTimeout)*time.Second,
 		time.Duration(*httpIdleTimeout)*time.Second,
-		time.Duration(*httpReadHeaderTimeout)*time.Second)
+		time.Duration(*httpReadHeaderTimeout)*time.Second,
+		time.Duration(*requestTimeout)*time.Second)
 	if err != nil {
 		return nil, err
 	}

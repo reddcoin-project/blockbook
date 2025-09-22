@@ -140,6 +140,11 @@ Blockbook provides command-line options to configure HTTP server timeouts to hel
   - Provides additional protection against slowloris attacks
   - Recommended range: 5-30 seconds
 
+* `--requesttimeout=45` – Individual request timeout in seconds for slow operations (default: 45)
+  - Maximum time allowed for slow API operations like address queries and xpub lookups
+  - Prevents long-running RocksDB operations from consuming resources indefinitely
+  - Recommended range: 30-120 seconds depending on database performance
+
 ### Usage Examples
 
 ```bash
@@ -151,14 +156,16 @@ Blockbook provides command-line options to configure HTTP server timeouts to hel
   --httpreadtimeout=15 \
   --httpwritetimeout=30 \
   --httpidletimeout=60 \
-  --httpreadheadertimeout=5
+  --httpreadheadertimeout=5 \
+  --requesttimeout=30
 
 # Lenient timeouts for servers with slower backend or network
 ./blockbook -sync -blockchaincfg=build/blockchaincfg.json \
   --httpreadtimeout=60 \
   --httpwritetimeout=120 \
   --httpidletimeout=300 \
-  --httpreadheadertimeout=20
+  --httpreadheadertimeout=20 \
+  --requesttimeout=90
 ```
 
 ### Nginx Reverse Proxy Considerations
