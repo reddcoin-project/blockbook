@@ -113,3 +113,67 @@ to alter built-in text that is specific for Trezor. Text fields that could be up
 
 Text data are stored as plain text files in *build/text* directory and are embedded to binary during build. A change of
 these files is meant for a private purpose and PRs that would update them won't be accepted.
+
+## HTTP Server Configuration
+
+Blockbook provides command-line options to configure HTTP server timeouts to help prevent resource exhaustion from slow, stalled, or malicious connections. These settings apply to both the public and internal HTTP servers.
+
+### HTTP Timeout Flags
+
+* `--httpreadtimeout=30` – HTTP server read timeout in seconds (default: 30)
+  - Maximum time allowed to read the complete request including headers and body
+  - Prevents slowloris-style attacks where clients send partial requests slowly
+  - Recommended range: 10-60 seconds depending on expected request sizes
+
+* `--httpwritetimeout=60` – HTTP server write timeout in seconds (default: 60)
+  - Maximum time allowed to write the complete response
+  - Should account for slow database queries and large response payloads
+  - Recommended range: 30-120 seconds depending on query complexity
+
+* `--httpidletimeout=120` – HTTP server idle timeout in seconds (default: 120)
+  - Maximum time to wait for the next request when keep-alive is enabled
+  - Helps free up connections from inactive clients
+  - Recommended range: 60-300 seconds depending on client behavior
+
+* `--httpreadheadertimeout=10` – HTTP server read header timeout in seconds (default: 10)
+  - Maximum time allowed to read request headers
+  - Provides additional protection against slowloris attacks
+  - Recommended range: 5-30 seconds
+
+### Usage Examples
+
+```bash
+# Default timeouts (suitable for most deployments)
+./blockbook -sync -blockchaincfg=build/blockchaincfg.json
+
+# Aggressive timeouts for high-traffic servers with bot protection
+./blockbook -sync -blockchaincfg=build/blockchaincfg.json \
+  --httpreadtimeout=15 \
+  --httpwritetimeout=30 \
+  --httpidletimeout=60 \
+  --httpreadheadertimeout=5
+
+# Lenient timeouts for servers with slower backend or network
+./blockbook -sync -blockchaincfg=build/blockchaincfg.json \
+  --httpreadtimeout=60 \
+  --httpwritetimeout=120 \
+  --httpidletimeout=300 \
+  --httpreadheadertimeout=20
+```
+
+### Nginx Reverse Proxy Considerations
+
+When running Blockbook behind an nginx reverse proxy, configure nginx timeouts to complement Blockbook's timeouts:
+
+```nginx
+# Upstream timeouts should be slightly longer than Blockbook's writeTimeout
+proxy_connect_timeout 10s;
+proxy_send_timeout 30s;
+proxy_read_timeout 70s;  # writeTimeout + 10s buffer
+
+# Client timeouts should be shorter than Blockbook's readTimeout
+client_body_timeout 20s;
+client_header_timeout 20s;
+```
+
+This ensures nginx doesn't timeout before Blockbook can respond, while still protecting against slow clients.

@@ -38,7 +38,7 @@ type InternalServer struct {
 }
 
 // NewInternalServer creates new internal http interface to blockbook and returns its handle
-func NewInternalServer(binding, certFiles string, db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState, fiatRates *fiat.FiatRates) (*InternalServer, error) {
+func NewInternalServer(binding, certFiles string, db *db.RocksDB, chain bchain.BlockChain, mempool bchain.Mempool, txCache *db.TxCache, metrics *common.Metrics, is *common.InternalState, fiatRates *fiat.FiatRates, readTimeout, writeTimeout, idleTimeout, readHeaderTimeout time.Duration) (*InternalServer, error) {
 	api, err := api.NewWorker(db, chain, mempool, txCache, metrics, is, fiatRates)
 	if err != nil {
 		return nil, err
@@ -49,10 +49,10 @@ func NewInternalServer(binding, certFiles string, db *db.RocksDB, chain bchain.B
 	https := &http.Server{
 		Addr:              addr,
 		Handler:           serveMux,
-		ReadTimeout:       30 * time.Second,  // Time to read request headers and body
-		WriteTimeout:      60 * time.Second,  // Time to write response
-		IdleTimeout:       120 * time.Second, // Keep-alive timeout
-		ReadHeaderTimeout: 10 * time.Second,  // Prevent slowloris attacks
+		ReadTimeout:       readTimeout,
+		WriteTimeout:      writeTimeout,
+		IdleTimeout:       idleTimeout,
+		ReadHeaderTimeout: readHeaderTimeout,
 	}
 	s := &InternalServer{
 		htmlTemplates: htmlTemplates[InternalTemplateData]{
