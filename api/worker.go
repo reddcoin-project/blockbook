@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -68,15 +69,15 @@ func (w *Worker) getAddressesFromVout(vout *bchain.Vout) (bchain.AddressDescript
 	return addrDesc, a, s, err
 }
 
-// setSpendingTxToVout is helper function, that finds transaction that spent given output and sets it to the output
+// setSpendingTxToVoutContext is context-aware helper function, that finds transaction that spent given output and sets it to the output
 // there is no direct index for the operation, it must be found using addresses -> txaddresses -> tx
-func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) error {
-	err := w.db.GetAddrDescTransactions(vout.AddrDesc, height, maxUint32, func(t string, height uint32, indexes []int32) error {
+func (w *Worker) setSpendingTxToVoutContext(ctx context.Context, vout *Vout, txid string, height uint32) error {
+	err := w.db.GetAddrDescTransactionsContext(ctx, vout.AddrDesc, height, maxUint32, func(t string, height uint32, indexes []int32) error {
 		for _, index := range indexes {
 			// take only inputs
 			if index < 0 {
 				index = ^index
-				tsp, err := w.db.GetTxAddresses(t)
+				tsp, err := w.db.GetTxAddressesContext(ctx, t)
 				if err != nil {
 					return err
 				} else if tsp == nil {
@@ -105,10 +106,26 @@ func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) err
 	return err
 }
 
+// setSpendingTxToVout is helper function, that finds transaction that spent given output and sets it to the output
+// there is no direct index for the operation, it must be found using addresses -> txaddresses -> tx
+func (w *Worker) setSpendingTxToVout(vout *Vout, txid string, height uint32) error {
+	return w.setSpendingTxToVoutContext(context.Background(), vout, txid, height)
+}
+
 // GetSpendingTxid returns transaction id of transaction that spent given output
 func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
+	return w.GetSpendingTxidContext(context.Background(), txid, n)
+}
+
+// GetSpendingTxidContext is the context-aware version of GetSpendingTxid
+func (w *Worker) GetSpendingTxidContext(ctx context.Context, txid string, n int) (string, error) {
+	// Check for context cancellation before expensive operations
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
 	if w.db.HasExtendedIndex() {
-		tsp, err := w.db.GetTxAddresses(txid)
+		tsp, err := w.db.GetTxAddressesContext(ctx, txid)
 		if err != nil {
 			return "", err
 		} else if tsp == nil {
@@ -121,6 +138,12 @@ func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
 		return tsp.Outputs[n].SpentTxid, nil
 	}
 	start := time.Now()
+
+	// Check for context cancellation before expensive operations
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
 	tx, err := w.getTransaction(txid, false, false, nil)
 	if err != nil {
 		return "", err
@@ -128,7 +151,13 @@ func (w *Worker) GetSpendingTxid(txid string, n int) (string, error) {
 	if n >= len(tx.Vout) || n < 0 {
 		return "", NewAPIError(fmt.Sprintf("Passed incorrect vout index %v for tx %v, len vout %v", n, tx.Txid, len(tx.Vout)), false)
 	}
-	err = w.setSpendingTxToVout(&tx.Vout[n], tx.Txid, uint32(tx.Blockheight))
+
+	// Check for context cancellation before the most expensive operation
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
+	err = w.setSpendingTxToVoutContext(ctx, &tx.Vout[n], tx.Txid, uint32(tx.Blockheight))
 	if err != nil {
 		return "", err
 	}
@@ -1308,6 +1337,11 @@ func setIsOwnAddress(tx *Tx, address string) {
 
 // GetAddress computes address value and gets transactions for given address
 func (w *Worker) GetAddress(address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter, secondaryCoin string) (*Address, error) {
+	return w.GetAddressContext(context.Background(), address, page, txsOnPage, option, filter, secondaryCoin)
+}
+
+// GetAddressContext is the context-aware version of GetAddress
+func (w *Worker) GetAddressContext(ctx context.Context, address string, page int, txsOnPage int, option AccountDetails, filter *AddressFilter, secondaryCoin string) (*Address, error) {
 	start := time.Now()
 	page--
 	if page < 0 {
